@@ -1,15 +1,18 @@
 //! An implementation of a [`Quadtree`].
-//!
-//! TODO:
-//!     - test query and find_all_intersections
-//!     - clear?
-//!     - Error?
-//!     - Shape instead of Rect. aka rework the Quad trait to allow for different primitive shapes (Circle,
-//!     Rect, Capsule)
+
+// TODO:
+//     - Shape instead of Rect for values aka rework the Quad trait to allow for different primitive shapes (Circle,
+//     Rect, Capsule)
+//     - Query iterator
+//     - Regions and Values iterators
+//     - Iter and IntoIter for quadrant, value pairs
+//     - nearest?
+//     - Error?
 
 use bevy::math::{vec2, Rect};
 
 pub mod quad;
+pub mod shape;
 
 use quad::Quad;
 
@@ -47,9 +50,12 @@ impl<T: PartialEq + Quad + Clone> Quadtree<T> {
         }
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.root.clear();
+    }
+
     /// Inserts a new value to the `Quadtree`
-    ///
-    /// Panics if the provided values can't fit in the Quadtree!
     #[inline]
     pub fn insert(&mut self, val: T) {
         self.root.insert(self.bounds, 0, val);
@@ -63,8 +69,6 @@ impl<T: PartialEq + Quad + Clone> Quadtree<T> {
     }
 
     /// Removes a value from the `Quadtree`
-    ///
-    /// Panics if the provided values can't fit in the Quadtree!
     #[inline]
     pub fn remove(&mut self, val: &T) {
         self.root.remove(self.bounds, val);
@@ -110,6 +114,18 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         Self {
             children: [None, None, None, None],
             values: Vec::with_capacity(capacity),
+        }
+    }
+
+    #[inline]
+    fn clear(&mut self) {
+        self.values.clear();
+        let mut children_iter = self.children.iter_mut();
+        while let Some(Some(child)) = children_iter.next() {
+            child.clear();
+        }
+        if !self.is_leaf() {
+            self.try_merge();
         }
     }
 
@@ -179,6 +195,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         }
     }
 
+    /// Subdivides the current node
     fn subdivide(&mut self, bounds: Rect) {
         assert!(self.is_leaf());
         // initialize children
@@ -211,8 +228,6 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
     /// and merging appropriate parent nodes with its children.
     ///
     /// Returns `true` if the `QNode`'s parent node should try to merge with its children.
-    ///
-    /// Panics if the value can't be contained in `QNode`'s bounds.
     fn remove(&mut self, bounds: Rect, val: &T) -> bool {
         if self.is_leaf() {
             self.remove_found_val(val);
@@ -360,9 +375,11 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
 
 /// Creates quadrant groups from the provided `items`.
 ///
-/// It returns an array of 5 [`Vec`]'s, first four have indices corresponding to the indices of the
-/// quadrants.
-/// The 5th `Vec` stores the items that couldn't be stored in any of the child qudrants and should
+/// It returns an array of 5 [`Vec`]'s.
+/// First four have indices corresponding to the indices of the quadrants
+/// (i.e. first `Vec` (index 0) corresponds to first quadrant (also index 0)).
+///
+/// The 5th `Vec` stores the items that couldn't be stored in any of the child quadrants and should
 /// therefore be stored by the parent
 fn group_by_quadrant<T: PartialEq + Quad>(bounds: Rect, items: Vec<T>) -> [Vec<T>; 5] {
     // initialize the return array
@@ -440,7 +457,7 @@ fn find_quadrant(bounds: Rect, val: impl Quad) -> Option<usize> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use bevy::math::{vec2, Rect};
+    use bevy::math::{vec2, Rect, Vec2};
 
     #[test]
     fn find_quadrant_works() {
@@ -708,7 +725,6 @@ mod test {
 
         qtree.insert_many(&oob_pts);
 
-        dbg!(&qtree);
         assert!(
             !qtree.root.is_leaf(),
             "out of bounds values get inserted into the root node, but the valid values get split amongst the child nodes"
@@ -719,34 +735,120 @@ mod test {
             16,
             "out of bounds values get inserted into the root node"
         );
+
+        qtree.clear();
+        assert!(qtree.root.is_leaf());
+        assert!(qtree.root.values.is_empty());
     }
 
-    // #[test]
-    // fn quadtree_query_works() {
-    //     let mut qtree: Quadtree<Vec2> =
-    //         Quadtree::new(Rect::from_corners(vec2(0., 0.), vec2(8.0, 8.0)));
-    //
-    //     // all pts between (0.0, 0.0) and (3.5, 3.5) in increments of 0.5;
-    //     // 36 points to insert
-    //     // quadtree should split twice specifically the first quadrant
-    //     let pts: Vec<_> = (0..4)
-    //         .flat_map(|x| {
-    //             (0..4).flat_map(move |y| {
-    //                 [
-    //                     vec2(x as f32, y as f32),
-    //                     vec2(x as f32 + 0.5, y as f32 + 0.5),
-    //                 ]
-    //             })
-    //         })
-    //         .collect();
-    //
-    //     // qtree.insert_many(pts);
-    //
-    //     todo!()
-    // }
-    //
-    // #[test]
-    // fn quadtree_find_all_intersections_works() {
-    //     todo!()
-    // }
+    #[test]
+    fn quadtree_query_works() {
+        let mut qtree = Quadtree::new(Rect::from_corners(vec2(0., 0.), vec2(8.0, 8.0)));
+
+        // all pts between (0.0, 0.0) and (3.5, 3.5) in increments of 0.5;
+        // 32 points to insert = 4 * 4 * 2
+        // quadtree should split twice specifically the first quadrant
+        let pts: Vec<_> = (0..4)
+            .flat_map(|x| {
+                (0..4).flat_map(move |y| {
+                    [
+                        vec2(x as f32, y as f32),
+                        vec2(x as f32 + 0.5, y as f32 + 0.5),
+                    ]
+                })
+            })
+            .collect();
+
+        qtree.insert_many(&pts);
+
+        let first_quadrant = qtree.root.children[0].as_deref().unwrap();
+        for (i, child) in first_quadrant.children.iter().enumerate() {
+            let child = child.as_deref().unwrap();
+            assert_eq!(
+                child.values.len(),
+                8,
+                "each child of the first quadrant should have 8 values"
+            );
+
+            let quadrant_contains_appropriate_value = match i {
+                0 => child.values.contains(&vec2(0., 0.)),
+                1 => child.values.contains(&vec2(2., 0.)),
+                2 => child.values.contains(&vec2(2., 2.)),
+                _ => child.values.contains(&vec2(0., 2.)),
+            };
+
+            assert!(quadrant_contains_appropriate_value);
+        }
+
+        // FQOFQ: first quadrant of the first quadrant
+        // marked with X
+        // +-------+-------+
+        // |       |       |
+        // |       |       |
+        // |       |       |
+        // +---+---+-------+
+        // |   |   |       |
+        // |---+---|       |
+        // | X |   |       |
+        // +---+---+-------+
+        //
+        // points expected to be in the FQOFQ
+        let expected_query = vec![
+            vec2(0.0, 0.0),
+            vec2(0.5, 0.5),
+            vec2(0.0, 1.0),
+            vec2(0.5, 1.5),
+            vec2(1.0, 0.0),
+            vec2(1.5, 0.5),
+            vec2(1.0, 1.0),
+            vec2(1.5, 1.5),
+        ];
+        // query the FQOFQ
+        // it doesn't contain values of the quadrants that only share an edge with the query bounds.
+        let query = qtree
+            .query(Rect::from_corners(Vec2::splat(0.0), Vec2::splat(2.0)))
+            .iter()
+            .map(|&v| *v)
+            .collect::<Vec<_>>();
+        assert_eq!(expected_query, query);
+
+        let expected_query = pts
+            .iter()
+            .filter(|v| v.x >= 1.0 && v.x <= 3.0 && v.y >= 1.0 && v.y <= 3.0)
+            .collect::<Vec<_>>();
+        // query the center of FQOFQ
+        let query = qtree.query(Rect::from_center_size(Vec2::splat(2.0), Vec2::splat(2.0)));
+
+        assert_eq!(expected_query.len(), query.len());
+        for item in query {
+            assert!(expected_query.contains(&item));
+        }
+    }
+
+    #[test]
+    fn quadtree_find_all_intersections_works() {
+        let mut qtree = Quadtree::new(Rect::from_corners(vec2(0., 0.), vec2(8.0, 8.0)));
+        let items = [
+            // first quadrant
+            // intersecting
+            Rect::from_corners(Vec2::splat(0.0), Vec2::splat(2.0)),
+            Rect::from_corners(Vec2::splat(1.0), Vec2::splat(3.0)),
+            // non-intersecting
+            Rect::from_corners(vec2(0.0, 2.5), vec2(1.0, 3.0)),
+            // root and third quadrant intersections
+            Rect::from_corners(vec2(3.0, 5.0), vec2(5.0, 8.0)),
+            Rect::from_corners(Vec2::splat(4.0), Vec2::splat(6.0)),
+            // non-intersecting 3q
+            Rect::from_corners(vec2(7.0, 4.0), vec2(8.0, 8.0)),
+            // 4q
+            Rect::from_corners(vec2(0.0, 4.0), vec2(2.0, 7.0)),
+        ];
+
+        qtree.insert_many(&items);
+
+        let intersections = qtree.find_all_intersections();
+        assert_eq!(2, intersections.len());
+        assert_eq!((&items[1], &items[0]), intersections[0]);
+        assert_eq!((&items[4], &items[3]), intersections[1]);
+    }
 }
