@@ -1,25 +1,23 @@
 //! An implementation of a [`Quadtree`].
 
 // TODO:
-//     - Shape instead of Rect for values aka rework the Quad trait to allow for different primitive shapes (Circle,
+//     - WIP Shape instead of Rect (Circle,
 //     Rect, Capsule)
-//     - Query iterator
-//     - Regions and Values iterators
-//     - Iter and IntoIter for quadrant, value pairs
 //     - nearest?
 //     - Error?
 
-use bevy::math::{vec2, Rect};
+use bevy::math::{vec2, Rect, Vec2};
 
-pub mod quad;
-pub mod shape;
+pub mod iter;
+pub mod plugin;
+pub mod quad_val;
 
-use quad::Quad;
+use quad_val::AsQuadVal;
 
 /// A `Quadtree` implementation using [`bevy`] compatible types.
 ///
-/// Uses a [`Rect`] to determine the `Quadtree` bounds and which quadtree-node the value belongs to.
-/// As a result all values that need to be stored in the `Quadtree` need to implement [`Quad`] helper trait.
+/// All values that need to be stored in the `Quadtree` need to implement [`AsQuadVal`] helper trait
+/// to determine how to convert them to a [`QuadVal`] which has useful collision detection methods.
 ///
 /// Current implementation stores all values even if they don't fit in the bounding box of the `Quadtree`!
 /// Values that are out of bounds are stored in the `root` node of the tree.
@@ -30,20 +28,19 @@ use quad::Quad;
 #[derive(Debug)]
 pub struct Quadtree<T>
 where
-    T: PartialEq + Quad + Clone,
+    T: PartialEq + AsQuadVal + Clone,
 {
     bounds: Rect,
     root: Box<QNode<T>>,
 }
 
-impl<T: PartialEq + Quad + Clone> Quadtree<T> {
-    const THRESHOLD: usize = 16;
+impl<T: PartialEq + AsQuadVal + Clone> Quadtree<T> {
+    const THRESHOLD: usize = 32;
     const MAX_DEPTH: usize = 8;
 
     /// Initializes an empty `Quadtree` from the provided bounds.
     #[inline]
     pub fn new(bounds: Rect) -> Self {
-        let bounds = bounds.as_quad();
         Quadtree {
             bounds,
             root: Box::new(QNode::new()),
@@ -89,11 +86,20 @@ impl<T: PartialEq + Quad + Clone> Quadtree<T> {
 
     /// Finds all the intersecting values stored in the Quadtree.
     /// All intersection pairs are returned in a [`Vec`].
+    ///
+    /// In the construction of a return vector allocation happens for every 64 items inserted into it.
     pub fn find_all_intersections(&self) -> Vec<(&T, &T)> {
-        // reserve space for 256 items as a sane default
-        let mut intersections = Vec::with_capacity(256);
+        // reserve space for 64 items as a sane default
+        let mut intersections = Vec::with_capacity(64);
         self.root.find_all_intersections(&mut intersections);
         intersections
+    }
+
+    /// Finds the element nearest to the given position.
+    /// Returns `None` if the provided position doesn't fit in the Quadtree or if no values were
+    /// found.
+    pub fn nearest(&self, pos: Vec2) -> Option<&T> {
+        self.root.nearest(self.bounds, pos)
     }
 }
 
@@ -102,12 +108,12 @@ impl<T: PartialEq + Quad + Clone> Quadtree<T> {
 /// child 0 -> child 1  -> child 2  -> child 3
 /// BotLeft -> BotRight -> TopRight -> TopLeft
 #[derive(Debug)]
-struct QNode<T: PartialEq + Quad + Clone> {
+struct QNode<T: PartialEq + AsQuadVal + Clone> {
     children: [Option<Box<QNode<T>>>; 4],
     values: Vec<T>,
 }
 
-impl<T: PartialEq + Quad + Clone> QNode<T> {
+impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
     #[inline]
     fn new() -> Self {
         let capacity = Quadtree::<T>::THRESHOLD;
@@ -152,7 +158,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
             // non leaf
             let groups = group_by_quadrant(bounds, items);
             for (i, quadrant_items) in groups.into_iter().enumerate() {
-                // if we find a child we are looking at one of the first 4 groups
+                // if we find a child, we are looking at one of the first 4 groups.
                 // we try to recursively insert an appropriate vector of items into each of the children
                 if let Some(child) = self.children.get_mut(i) {
                     let child = child.as_deref_mut().expect("parent is not a leaf");
@@ -170,7 +176,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
     }
 
     fn insert(&mut self, bounds: Rect, depth: usize, val: T) {
-        let val_bounds = val.as_quad();
+        let val_shape = val.as_quad_val();
         let max_depth = Quadtree::<T>::MAX_DEPTH;
         let threshold = Quadtree::<T>::THRESHOLD;
 
@@ -183,7 +189,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
                 self.subdivide(bounds);
                 self.insert(bounds, depth, val);
             }
-        } else if let Some(idx) = find_quadrant(bounds, val_bounds) {
+        } else if let Some(idx) = find_quadrant(bounds, val_shape) {
             // Add the value to a child if the value is entirely contained in it
             self.children[idx]
                 .as_mut()
@@ -212,7 +218,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
 
         for val in old_values {
             // If we find the quadrant to insert, we insert
-            if let Some(idx) = find_quadrant(bounds, val.as_quad()) {
+            if let Some(idx) = find_quadrant(bounds, val.as_quad_val()) {
                 let child_qnode = self.children[idx].as_deref_mut().expect("init above");
                 child_qnode.values.push(val);
             // Otherwise keep in the current Node
@@ -233,7 +239,7 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
             self.remove_found_val(val);
             // if this qnode is a leaf and we removed a value we should try to merge
             true
-        } else if let Some(idx) = find_quadrant(bounds, val.as_quad()) {
+        } else if let Some(idx) = find_quadrant(bounds, val.as_quad_val()) {
             if self.children[idx]
                 .as_deref_mut()
                 .expect("not a leaf")
@@ -303,9 +309,13 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         contained_values: &mut Vec<&'qt T>,
     ) {
         assert!(!quad_bounds.intersect(query_bounds).is_empty());
+
         for val in self.values.iter() {
-            let val_quad = val.as_quad();
-            if query_bounds.contains(val_quad.min) || query_bounds.contains(val_quad.max) {
+            let val_shape = val.as_quad_val();
+            if contained_values.capacity() < 5 {
+                contained_values.reserve(64);
+            }
+            if val_shape.intersects(query_bounds) {
                 contained_values.push(val);
             }
         }
@@ -313,6 +323,10 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         if !self.is_leaf() {
             for i in 0..self.children.len() {
                 let child_bounds = compute_bounds(quad_bounds, i);
+                // NOTE:
+                // is_empty check is appropriate here
+                // if we query the exact size of a quadrant we don't want to see all the
+                // surrounding quadrants.
                 if !query_bounds.intersect(child_bounds).is_empty() {
                     self.children[i]
                         .as_deref()
@@ -330,7 +344,10 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         for (i, val_a) in self.values.iter().enumerate().skip(1) {
             for val_b in self.values[0..i].iter() {
                 // if intersection isn't empty push the values into intersections.
-                if !val_a.as_quad().intersect(val_b.as_quad()).is_empty() {
+                if val_a.as_quad_val().intersects(val_b.as_quad_val()) {
+                    if intersections.capacity() < 5 {
+                        intersections.reserve(64);
+                    }
                     intersections.push((val_a, val_b));
                 }
             }
@@ -359,7 +376,10 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
         intersections: &mut Vec<(&'qt T, &'qt T)>,
     ) {
         for other in self.values.iter() {
-            if !val.as_quad().intersect(other.as_quad()).is_empty() {
+            if val.as_quad_val().intersects(other.as_quad_val()) {
+                if intersections.capacity() < 5 {
+                    intersections.reserve(64);
+                }
                 intersections.push((val, other));
             }
         }
@@ -369,6 +389,34 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
                 let child = child.as_deref().expect("parent is not leaf");
                 child.find_intersections_in_descendants(val, intersections);
             }
+        }
+    }
+
+    fn nearest(&self, bounds: Rect, pos: Vec2) -> Option<&T> {
+        if self.is_leaf() {
+            let mut closest_val = self.values.first();
+            let mut closest_dist = self
+                .values
+                .first()
+                // if there is an empty array there is no values to return so we return None
+                .map(|val| pos.distance(val.as_quad_val().center()))?;
+
+            for val in self.values.iter().skip(1) {
+                let curr_dist = pos.distance(val.as_quad_val().center());
+
+                if curr_dist < closest_dist {
+                    closest_val = Some(val);
+                    closest_dist = curr_dist;
+                }
+            }
+
+            closest_val
+        } else {
+            let quadrant = find_quadrant(bounds, pos)?;
+            self.children[quadrant]
+                .as_deref()
+                .expect("self is parent")
+                .nearest(bounds, pos)
         }
     }
 }
@@ -381,12 +429,12 @@ impl<T: PartialEq + Quad + Clone> QNode<T> {
 ///
 /// The 5th `Vec` stores the items that couldn't be stored in any of the child quadrants and should
 /// therefore be stored by the parent
-fn group_by_quadrant<T: PartialEq + Quad>(bounds: Rect, items: Vec<T>) -> [Vec<T>; 5] {
+fn group_by_quadrant<T: PartialEq + AsQuadVal>(bounds: Rect, items: Vec<T>) -> [Vec<T>; 5] {
     // initialize the return array
     let mut res = [vec![], vec![], vec![], vec![], vec![]];
 
     for item in items {
-        if let Some(idx) = find_quadrant(bounds, item.as_quad()) {
+        if let Some(idx) = find_quadrant(bounds, item.as_quad_val()) {
             res[idx].push(item);
         } else {
             res[4].push(item);
@@ -422,30 +470,29 @@ fn compute_bounds(parent: Rect, idx: usize) -> Rect {
 }
 
 /// A helper function that finds a quadrant for a given value.
-fn find_quadrant(bounds: Rect, val: impl Quad) -> Option<usize> {
+fn find_quadrant(bounds: Rect, val: impl AsQuadVal) -> Option<usize> {
     let center = bounds.center();
-    let quad = val.as_quad();
+    let shape = val.as_quad_val();
 
     // Return early if the quad is out of bounds.
-    if quad.max.x > bounds.max.x
-        || quad.max.y > bounds.max.y
-        || quad.min.x < bounds.min.x
-        || quad.min.y < bounds.min.y
-    {
+    if !shape.is_contained_by(bounds) {
         return None;
     }
 
+    // TODO: improve this
+    let shape = shape.aabb();
+
     // Try to find the quadrant and return early if you do
-    if quad.max.x < center.x {
-        if quad.max.y < center.y {
+    if shape.max.x < center.x {
+        if shape.max.y < center.y {
             return Some(0);
-        } else if quad.min.y >= center.y {
+        } else if shape.min.y >= center.y {
             return Some(3);
         }
-    } else if quad.min.x >= center.x {
-        if quad.max.y < center.y {
+    } else if shape.min.x >= center.x {
+        if shape.max.y < center.y {
             return Some(1);
-        } else if quad.min.y >= center.y {
+        } else if shape.min.y >= center.y {
             return Some(2);
         }
     }
@@ -667,7 +714,7 @@ mod test {
                 child_qnode
                     .values
                     .iter()
-                    .all(|val| rect.contains(val.as_quad().center())),
+                    .all(|val| val.as_quad_val().is_contained_by(rect)),
                 "All values in quadrant {} should be within its bounds",
                 idx
             );
@@ -833,7 +880,6 @@ mod test {
             // intersecting
             Rect::from_corners(Vec2::splat(0.0), Vec2::splat(2.0)),
             Rect::from_corners(Vec2::splat(1.0), Vec2::splat(3.0)),
-            // non-intersecting
             Rect::from_corners(vec2(0.0, 2.5), vec2(1.0, 3.0)),
             // root and third quadrant intersections
             Rect::from_corners(vec2(3.0, 5.0), vec2(5.0, 8.0)),
@@ -847,8 +893,30 @@ mod test {
         qtree.insert_many(&items);
 
         let intersections = qtree.find_all_intersections();
-        assert_eq!(2, intersections.len());
+        dbg!(&intersections);
+        assert_eq!(3, intersections.len());
         assert_eq!((&items[1], &items[0]), intersections[0]);
-        assert_eq!((&items[4], &items[3]), intersections[1]);
+        assert_eq!((&items[2], &items[1]), intersections[1]);
+        assert_eq!((&items[4], &items[3]), intersections[2]);
+    }
+
+    #[test]
+    fn quadtree_nearest_works() {
+        let mut qtree = Quadtree::new(Rect::from_corners(vec2(0., 0.), vec2(8.0, 8.0)));
+        // Points to add
+        let pts = [
+            vec2(1.0, 1.0), // Bottom-Left quadrant
+            vec2(7.0, 7.0), // Top-Right quadrant
+            vec2(3.0, 5.0), // Top-Left quadrant
+            vec2(6.5, 1.5), // Bottom-Right quadrant
+            vec2(4.0, 4.0), // Center, Top-Right quadrant
+        ];
+        qtree.insert_many(&pts);
+
+        assert_eq!(pts[0], *qtree.nearest(Vec2::ZERO).unwrap());
+        assert_eq!(pts[1], *qtree.nearest(Vec2::splat(8.0)).unwrap());
+        assert_eq!(pts[2], *qtree.nearest(Vec2::new(3.0, 6.0)).unwrap());
+        assert_eq!(pts[3], *qtree.nearest(Vec2::new(6.0, 2.0)).unwrap());
+        assert_eq!(pts[4], *qtree.nearest(Vec2::splat(4.0)).unwrap());
     }
 }

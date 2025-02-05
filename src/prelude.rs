@@ -38,13 +38,15 @@ pub const PLAYER_SPEED: f32 = 100.;
 
 // Enemy
 pub const ENEMY_SPAWN_INTERVAL_SECS: f32 = 1.0;
-pub const ENEMY_SPAWN_PER_SEC: usize = 10_000;
+pub const ENEMY_SPAWN_PER_SEC: usize = 1;
 pub const ENEMY_ANIM_INTERVAL_SECS: f32 = 0.2;
-pub const ENEMY_MAX_INSTANCES: usize = 500_000;
+pub const ENEMY_MAX_INSTANCES: usize = 1;
 pub const ENEMY_SPEED: f32 = 30.;
 
+pub const ENEMY_QUADTREE_REFRESH_RATE_SECS: f32 = 0.1;
+
 // Gun
-pub const BULLET_SPAWN_INTERVAL_SECS: f32 = 0.1;
+pub const BULLET_SPAWN_INTERVAL_SECS: f32 = 2.1;
 pub const BULLET_LIFE_SECS: f32 = 2.0;
 pub const BULLET_SPEED: f32 = 300.;
 

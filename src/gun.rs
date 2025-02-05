@@ -1,5 +1,6 @@
-use crate::health::Health;
+use crate::collision::ColliderShape;
 use crate::prelude::*;
+use crate::quadtree::quad_val::Shape;
 use crate::{
     health::Damage,
     player::Player,
@@ -18,13 +19,12 @@ impl Plugin for GunPlugin {
         app.add_systems(OnEnter(GameState::Init), spawn_gun)
             .add_systems(
                 Update,
-                (
-                    handle_gun_input,
-                    update_gun_pos,
-                    update_bullet_pos,
-                    handle_bullet_timer,
-                )
+                (handle_gun_input, update_gun_pos, update_bullet_pos)
                     .run_if(in_state(GameState::Running)),
+            )
+            .add_systems(
+                Last,
+                handle_bullet_timer.run_if(in_state(GameState::Running)),
             );
     }
 }
@@ -41,9 +41,10 @@ pub struct GunTimer(pub Stopwatch);
     Transform,
     Sprite,
     BulletDirection,
-    Health(|| Health::new(1)),
     Damage,
-    SpawnInstant(|| SpawnInstant(Instant::now())))]
+    SpawnInstant(|| SpawnInstant(Instant::now())),
+    ColliderShape(|| ColliderShape(Shape::Circle(Circle::new(8.0))))
+)]
 pub struct Bullet;
 
 #[derive(Component, Debug, Deref, DerefMut)]
@@ -129,10 +130,13 @@ fn update_bullet_pos(
     });
 }
 
-fn handle_bullet_timer(mut bullet_query: Query<(&mut Health, &SpawnInstant), With<Bullet>>) {
-    bullet_query.iter_mut().for_each(|(mut hp, inst)| {
+fn handle_bullet_timer(
+    mut commands: Commands,
+    bullet_query: Query<(Entity, &SpawnInstant), With<Bullet>>,
+) {
+    bullet_query.iter().for_each(|(ent, inst)| {
         if inst.elapsed().as_secs_f32() >= BULLET_LIFE_SECS {
-            hp.current = 0;
+            commands.entity(ent).despawn()
         }
     });
 }

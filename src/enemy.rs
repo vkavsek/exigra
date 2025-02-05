@@ -4,7 +4,9 @@ use std::time::Duration;
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use rand::Rng;
 
+use crate::collision::ColliderShape;
 use crate::prelude::*;
+use crate::quadtree::quad_val::Shape;
 use crate::resources::EnemyNum;
 use crate::{
     animation::AnimationTimer, health::Damage, health::Health, player::Player,
@@ -35,7 +37,19 @@ impl Plugin for EnemyPlugin {
 }
 
 #[derive(Component)]
-#[require(Transform, Sprite, AnimationTimer, Health(|| Health::new(10)), Damage)]
+#[require(
+    Transform,
+    Sprite,
+    AnimationTimer,
+    Health(|| Health::new(10)),
+    Damage,
+    ColliderShape(|| 
+        ColliderShape(
+            Shape::Quad(
+                Rectangle::from_size(Vec2::splat(16.0))
+            )
+        ))
+)]
 pub struct Enemy;
 
 fn spawn_enemies(
