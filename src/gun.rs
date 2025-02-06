@@ -1,6 +1,6 @@
 use crate::collision::ColliderShape;
 use crate::prelude::*;
-use crate::quadtree::quad_val::Shape;
+use crate::quadtree::quad_collider::Shape;
 use crate::{
     health::Damage,
     player::Player,
@@ -43,7 +43,7 @@ pub struct GunTimer(pub Stopwatch);
     BulletDirection,
     Damage,
     SpawnInstant(|| SpawnInstant(Instant::now())),
-    ColliderShape(|| ColliderShape(Shape::Circle(Circle::new(8.0))))
+    ColliderShape(|| ColliderShape(Shape::Circle(Circle::new(4.0))))
 )]
 pub struct Bullet;
 

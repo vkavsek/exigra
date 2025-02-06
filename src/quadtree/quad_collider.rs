@@ -1,48 +1,48 @@
-//! Contains [`AsQuadVal`] helper trait, [`QuadVal`] & [`Shape`] structs, that are used to
+//! Contains [`AsQuadCollider`] helper trait, [`QuadVal`] & [`Shape`] structs, that are used to
 //! determine in the quadtree where a value should be stored.
-//! `QuadVal` has methods for collision detection.
+//! `QuadCollider` has methods for collision detection.
 
 use bevy::{
     math::{vec2, Rect, Vec2, Vec3},
     prelude::{Capsule2d, Circle, Rectangle},
 };
 
-pub trait AsQuadVal {
-    /// How to convert from a given type to a [`QuadVal`].
-    fn as_quad_val(&self) -> QuadVal;
+pub trait AsQuadCollider {
+    /// How to convert from a given type to a [`QuadCollider`].
+    fn as_quad_collider(&self) -> QuadCollider;
 }
 
-impl AsQuadVal for QuadVal {
+impl AsQuadCollider for QuadCollider {
     #[inline]
-    fn as_quad_val(&self) -> QuadVal {
+    fn as_quad_collider(&self) -> QuadCollider {
         *self
     }
 }
 
-impl AsQuadVal for Rect {
+impl AsQuadCollider for Rect {
     #[inline]
-    fn as_quad_val(&self) -> QuadVal {
-        QuadVal {
+    fn as_quad_collider(&self) -> QuadCollider {
+        QuadCollider {
             pos: self.center(),
             shape: Shape::Quad(Rectangle::new(self.width(), self.height())),
         }
     }
 }
 
-impl AsQuadVal for Vec2 {
+impl AsQuadCollider for Vec2 {
     #[inline]
-    fn as_quad_val(&self) -> QuadVal {
-        QuadVal {
+    fn as_quad_collider(&self) -> QuadCollider {
+        QuadCollider {
             pos: *self,
             shape: Shape::Circle(Circle::new(0.0)),
         }
     }
 }
 
-impl AsQuadVal for Vec3 {
+impl AsQuadCollider for Vec3 {
     #[inline]
-    fn as_quad_val(&self) -> QuadVal {
-        QuadVal {
+    fn as_quad_collider(&self) -> QuadCollider {
+        QuadCollider {
             pos: self.truncate(),
             shape: Shape::Circle(Circle::new(0.0)),
         }
@@ -53,12 +53,12 @@ impl AsQuadVal for Vec3 {
 
 /// A [`Quadtree`] compatible value with handy collision detection methods.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct QuadVal {
+pub struct QuadCollider {
     pub pos: Vec2,
     pub shape: Shape,
 }
 
-impl QuadVal {
+impl QuadCollider {
     #[inline]
     pub fn new(pos: Vec2, shape: Shape) -> Self {
         Self { pos, shape }
@@ -94,11 +94,11 @@ impl QuadVal {
 
     /// Checks if `self` intersects with `other`.
     #[inline]
-    pub fn intersects(self, other: impl AsQuadVal) -> bool {
-        let QuadVal {
+    pub fn intersects(self, other: impl AsQuadCollider) -> bool {
+        let QuadCollider {
             pos: other_pos,
             shape: other_shape,
-        } = other.as_quad_val();
+        } = other.as_quad_collider();
         match self.shape {
             Shape::Quad(rectangle) => match other_shape {
                 Shape::Quad(rectangle2) => {
@@ -355,19 +355,19 @@ mod test {
         let field = Rect::from_corners(Vec2::splat(0.0), Vec2::splat(40.0));
 
         // let r = Shape::Quad(Rect::from_corners(Vec2::splat(0.0), Vec2::splat(8.0)));
-        let r = QuadVal {
+        let r = QuadCollider {
             pos: Vec2::splat(4.0),
             shape: Shape::Quad(Rectangle::new(8.0, 8.0)),
         };
-        let cap = QuadVal {
+        let cap = QuadCollider {
             pos: Vec2::splat(10.),
             shape: Shape::Capsule(Capsule2d::new(1., 10.)),
         };
-        let circ = QuadVal {
+        let circ = QuadCollider {
             pos: vec2(4.0, 9.0),
             shape: Shape::Circle(Circle::new(1.0)),
         };
-        let circ2 = QuadVal {
+        let circ2 = QuadCollider {
             pos: vec2(11.0, 9.0),
             shape: Shape::Circle(Circle::new(2.0)),
         };

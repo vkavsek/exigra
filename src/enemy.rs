@@ -6,7 +6,7 @@ use rand::Rng;
 
 use crate::collision::ColliderShape;
 use crate::prelude::*;
-use crate::quadtree::quad_val::Shape;
+use crate::quadtree::quad_collider::Shape;
 use crate::resources::EnemyNum;
 use crate::{
     animation::AnimationTimer, health::Damage, health::Health, player::Player,
@@ -46,7 +46,7 @@ impl Plugin for EnemyPlugin {
     ColliderShape(|| 
         ColliderShape(
             Shape::Quad(
-                Rectangle::from_size(Vec2::splat(16.0))
+                Rectangle::from_size(Vec2::splat(8.0))
             )
         ))
 )]

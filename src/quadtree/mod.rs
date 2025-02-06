@@ -10,14 +10,14 @@ use bevy::math::{vec2, Rect, Vec2};
 
 pub mod iter;
 pub mod plugin;
-pub mod quad_val;
+pub mod quad_collider;
 
-use quad_val::AsQuadVal;
+use quad_collider::AsQuadCollider;
 
 /// A `Quadtree` implementation using [`bevy`] compatible types.
 ///
-/// All values that need to be stored in the `Quadtree` need to implement [`AsQuadVal`] helper trait
-/// to determine how to convert them to a [`QuadVal`] which has useful collision detection methods.
+/// All values that need to be stored in the `Quadtree` need to implement [`AsQuadCollider`] helper trait
+/// to determine how to convert them to a [`QuadCollider`] which has useful collision detection methods.
 ///
 /// Current implementation stores all values even if they don't fit in the bounding box of the `Quadtree`!
 /// Values that are out of bounds are stored in the `root` node of the tree.
@@ -28,13 +28,13 @@ use quad_val::AsQuadVal;
 #[derive(Debug)]
 pub struct Quadtree<T>
 where
-    T: PartialEq + AsQuadVal + Clone,
+    T: PartialEq + AsQuadCollider + Clone,
 {
     bounds: Rect,
     root: Box<QNode<T>>,
 }
 
-impl<T: PartialEq + AsQuadVal + Clone> Quadtree<T> {
+impl<T: PartialEq + AsQuadCollider + Clone> Quadtree<T> {
     const THRESHOLD: usize = 32;
     const MAX_DEPTH: usize = 8;
 
@@ -73,8 +73,6 @@ impl<T: PartialEq + AsQuadVal + Clone> Quadtree<T> {
 
     /// Queries for all the values that intersect the `query_bounds`.
     /// All the contained values are returned in a [`Vec`].
-    ///
-    /// Panics if provided `query_bounds` don't intersect with the `Quadtree`'s bounds.
     #[inline]
     pub fn query(&self, query_bounds: Rect) -> Vec<&T> {
         // reserve space for 256 items as a sane default
@@ -108,12 +106,12 @@ impl<T: PartialEq + AsQuadVal + Clone> Quadtree<T> {
 /// child 0 -> child 1  -> child 2  -> child 3
 /// BotLeft -> BotRight -> TopRight -> TopLeft
 #[derive(Debug)]
-struct QNode<T: PartialEq + AsQuadVal + Clone> {
+struct QNode<T: PartialEq + AsQuadCollider + Clone> {
     children: [Option<Box<QNode<T>>>; 4],
     values: Vec<T>,
 }
 
-impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
+impl<T: PartialEq + AsQuadCollider + Clone> QNode<T> {
     #[inline]
     fn new() -> Self {
         let capacity = Quadtree::<T>::THRESHOLD;
@@ -176,7 +174,7 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
     }
 
     fn insert(&mut self, bounds: Rect, depth: usize, val: T) {
-        let val_shape = val.as_quad_val();
+        let val_shape = val.as_quad_collider();
         let max_depth = Quadtree::<T>::MAX_DEPTH;
         let threshold = Quadtree::<T>::THRESHOLD;
 
@@ -218,7 +216,7 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
 
         for val in old_values {
             // If we find the quadrant to insert, we insert
-            if let Some(idx) = find_quadrant(bounds, val.as_quad_val()) {
+            if let Some(idx) = find_quadrant(bounds, val.as_quad_collider()) {
                 let child_qnode = self.children[idx].as_deref_mut().expect("init above");
                 child_qnode.values.push(val);
             // Otherwise keep in the current Node
@@ -239,7 +237,7 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
             self.remove_found_val(val);
             // if this qnode is a leaf and we removed a value we should try to merge
             true
-        } else if let Some(idx) = find_quadrant(bounds, val.as_quad_val()) {
+        } else if let Some(idx) = find_quadrant(bounds, val.as_quad_collider()) {
             if self.children[idx]
                 .as_deref_mut()
                 .expect("not a leaf")
@@ -308,10 +306,12 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
         query_bounds: Rect,
         contained_values: &mut Vec<&'qt T>,
     ) {
-        assert!(!quad_bounds.intersect(query_bounds).is_empty());
+        if quad_bounds.intersect(query_bounds).is_empty() {
+            return;
+        }
 
         for val in self.values.iter() {
-            let val_shape = val.as_quad_val();
+            let val_shape = val.as_quad_collider();
             if contained_values.capacity() < 5 {
                 contained_values.reserve(64);
             }
@@ -344,7 +344,10 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
         for (i, val_a) in self.values.iter().enumerate().skip(1) {
             for val_b in self.values[0..i].iter() {
                 // if intersection isn't empty push the values into intersections.
-                if val_a.as_quad_val().intersects(val_b.as_quad_val()) {
+                if val_a
+                    .as_quad_collider()
+                    .intersects(val_b.as_quad_collider())
+                {
                     if intersections.capacity() < 5 {
                         intersections.reserve(64);
                     }
@@ -376,7 +379,7 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
         intersections: &mut Vec<(&'qt T, &'qt T)>,
     ) {
         for other in self.values.iter() {
-            if val.as_quad_val().intersects(other.as_quad_val()) {
+            if val.as_quad_collider().intersects(other.as_quad_collider()) {
                 if intersections.capacity() < 5 {
                     intersections.reserve(64);
                 }
@@ -399,10 +402,10 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
                 .values
                 .first()
                 // if there is an empty array there is no values to return so we return None
-                .map(|val| pos.distance(val.as_quad_val().center()))?;
+                .map(|val| pos.distance(val.as_quad_collider().center()))?;
 
             for val in self.values.iter().skip(1) {
-                let curr_dist = pos.distance(val.as_quad_val().center());
+                let curr_dist = pos.distance(val.as_quad_collider().center());
 
                 if curr_dist < closest_dist {
                     closest_val = Some(val);
@@ -429,12 +432,12 @@ impl<T: PartialEq + AsQuadVal + Clone> QNode<T> {
 ///
 /// The 5th `Vec` stores the items that couldn't be stored in any of the child quadrants and should
 /// therefore be stored by the parent
-fn group_by_quadrant<T: PartialEq + AsQuadVal>(bounds: Rect, items: Vec<T>) -> [Vec<T>; 5] {
+fn group_by_quadrant<T: PartialEq + AsQuadCollider>(bounds: Rect, items: Vec<T>) -> [Vec<T>; 5] {
     // initialize the return array
     let mut res = [vec![], vec![], vec![], vec![], vec![]];
 
     for item in items {
-        if let Some(idx) = find_quadrant(bounds, item.as_quad_val()) {
+        if let Some(idx) = find_quadrant(bounds, item.as_quad_collider()) {
             res[idx].push(item);
         } else {
             res[4].push(item);
@@ -470,9 +473,9 @@ fn compute_bounds(parent: Rect, idx: usize) -> Rect {
 }
 
 /// A helper function that finds a quadrant for a given value.
-fn find_quadrant(bounds: Rect, val: impl AsQuadVal) -> Option<usize> {
+fn find_quadrant(bounds: Rect, val: impl AsQuadCollider) -> Option<usize> {
     let center = bounds.center();
-    let shape = val.as_quad_val();
+    let shape = val.as_quad_collider();
 
     // Return early if the quad is out of bounds.
     if !shape.is_contained_by(bounds) {
@@ -714,7 +717,7 @@ mod test {
                 child_qnode
                     .values
                     .iter()
-                    .all(|val| val.as_quad_val().is_contained_by(rect)),
+                    .all(|val| val.as_quad_collider().is_contained_by(rect)),
                 "All values in quadrant {} should be within its bounds",
                 idx
             );
