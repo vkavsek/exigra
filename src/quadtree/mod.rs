@@ -8,8 +8,6 @@
 
 use bevy::math::{vec2, Rect, Vec2};
 
-pub mod iter;
-pub mod plugin;
 pub mod quad_collider;
 
 use quad_collider::AsQuadCollider;
@@ -71,14 +69,13 @@ impl<T: PartialEq + AsQuadCollider + Clone> Quadtree<T> {
         self.root.remove(self.bounds, val);
     }
 
-    /// Queries for all the values that intersect the `query_bounds`.
+    /// Queries for all the values that intersect the `area`.
     /// All the contained values are returned in a [`Vec`].
     #[inline]
-    pub fn query(&self, query_bounds: Rect) -> Vec<&T> {
+    pub fn query(&self, area: Rect) -> Vec<&T> {
         // reserve space for 256 items as a sane default
         let mut contained_values = Vec::with_capacity(256);
-        self.root
-            .query(self.bounds, query_bounds, &mut contained_values);
+        self.root.query(self.bounds, area, &mut contained_values);
         contained_values
     }
 
@@ -299,14 +296,9 @@ impl<T: PartialEq + AsQuadCollider + Clone> QNode<T> {
 
     /// A spatial query.
     /// Recursively queries the `QNode` and its children for values that intersect with the
-    /// provided `query_bounds`
-    fn query<'qt>(
-        &'qt self,
-        quad_bounds: Rect,
-        query_bounds: Rect,
-        contained_values: &mut Vec<&'qt T>,
-    ) {
-        if quad_bounds.intersect(query_bounds).is_empty() {
+    /// provided `area`
+    fn query<'qt>(&'qt self, quad_bounds: Rect, area: Rect, contained_values: &mut Vec<&'qt T>) {
+        if quad_bounds.intersect(area).is_empty() {
             return;
         }
 
@@ -315,7 +307,7 @@ impl<T: PartialEq + AsQuadCollider + Clone> QNode<T> {
             if contained_values.capacity() < 5 {
                 contained_values.reserve(64);
             }
-            if val_shape.intersects(query_bounds) {
+            if val_shape.intersects(area) {
                 contained_values.push(val);
             }
         }
@@ -327,11 +319,11 @@ impl<T: PartialEq + AsQuadCollider + Clone> QNode<T> {
                 // is_empty check is appropriate here
                 // if we query the exact size of a quadrant we don't want to see all the
                 // surrounding quadrants.
-                if !query_bounds.intersect(child_bounds).is_empty() {
+                if !area.intersect(child_bounds).is_empty() {
                     self.children[i]
                         .as_deref()
                         .expect("parent is not leaf")
-                        .query(child_bounds, query_bounds, contained_values);
+                        .query(child_bounds, area, contained_values);
                 }
             }
         }

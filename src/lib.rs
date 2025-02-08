@@ -9,4 +9,5 @@ pub mod player;
 pub mod prelude;
 pub mod quadtree;
 pub mod resources;
+pub mod state;
 pub mod world;

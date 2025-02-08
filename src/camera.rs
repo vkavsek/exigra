@@ -9,10 +9,10 @@ pub struct CamPlugin;
 impl Plugin for CamPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PanCamPlugin)
-            .add_systems(OnEnter(GameState::Init), spawn_cam)
+            .add_systems(OnEnter(GameState::MainMenu), spawn_cam)
             .add_systems(
                 Update,
-                cam_follow_player.run_if(in_state(GameState::Running)),
+                cam_follow_player.run_if(in_state(GameState::GameRun)),
             );
     }
 }
@@ -27,7 +27,7 @@ fn spawn_cam(mut commands: Commands) {
         },
         OrthographicProjection {
             scaling_mode: bevy::render::camera::ScalingMode::WindowSize,
-            scale: 0.25,
+            scale: 0.35,
             ..OrthographicProjection::default_2d()
         },
         Msaa::Off,

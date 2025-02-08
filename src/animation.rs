@@ -20,7 +20,7 @@ impl Plugin for AnimPlugin {
                 (animate_player, animate_gun, animate_enemy),
             )
                 .chain()
-                .run_if(in_state(GameState::Running)),
+                .run_if(in_state(GameState::GameRun)),
         );
     }
 }

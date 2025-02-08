@@ -16,15 +16,15 @@ pub struct GunPlugin;
 
 impl Plugin for GunPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Init), spawn_gun)
+        app.add_systems(OnEnter(GameState::GameInit), spawn_gun)
             .add_systems(
                 Update,
                 (handle_gun_input, update_gun_pos, update_bullet_pos)
-                    .run_if(in_state(GameState::Running)),
+                    .run_if(in_state(GameState::GameRun)),
             )
             .add_systems(
                 Last,
-                handle_bullet_timer.run_if(in_state(GameState::Running)),
+                handle_bullet_timer.run_if(in_state(GameState::GameRun)),
             );
     }
 }

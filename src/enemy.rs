@@ -21,7 +21,7 @@ impl Plugin for EnemyPlugin {
         // the previous iteration.
         app.add_systems(
             First,
-            track_num_of_enemies.run_if(in_state(GameState::Running)),
+            track_num_of_enemies.run_if(in_state(GameState::GameRun)),
         )
         .add_systems(
             Update,
@@ -31,7 +31,7 @@ impl Plugin for EnemyPlugin {
             )
                 // spawn enemies first, then run all the updating systems
                 .chain()
-                .run_if(in_state(GameState::Running)),
+                .run_if(in_state(GameState::GameRun)),
         );
     }
 }
@@ -63,7 +63,7 @@ fn spawn_enemies(
         return;
     }
 
-    let enemy_spawn_count = (ENEMY_MAX_INSTANCES - num_enemies).min(ENEMY_SPAWN_PER_SEC);
+    let enemy_spawn_count = (ENEMY_MAX_INSTANCES - num_enemies).min(ENEMY_SPAWN_PER_INTERVAL);
     **num_of_enemies += enemy_spawn_count;
 
     let player_pos = player_query.single().translation.truncate();
@@ -71,7 +71,7 @@ fn spawn_enemies(
 
     let mut get_random_around = |pos: Vec2| {
         let angle = rng.gen_range(0.0..PI * 2.0);
-        let dist = rng.gen_range(100.0..2000.);
+        let dist = rng.gen_range(200.0..2000.);
 
         let mut res = pos + Vec2::from_angle(angle) * dist;
         let whalf = WORLD_SIZE * 0.5;

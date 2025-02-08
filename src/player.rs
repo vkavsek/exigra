@@ -7,10 +7,10 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Init), spawn_player)
+        app.add_systems(OnEnter(GameState::GameInit), spawn_player)
             .add_systems(
                 Update,
-                handle_player_input.run_if(in_state(GameState::Running)),
+                handle_player_input.run_if(in_state(GameState::GameRun)),
             );
     }
 }
@@ -43,7 +43,7 @@ fn spawn_player(
         Player,
     ));
 
-    next_state.set(GameState::Running)
+    next_state.set(GameState::GameRun)
 }
 
 fn handle_player_input(

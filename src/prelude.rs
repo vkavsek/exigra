@@ -4,14 +4,13 @@
 use bevy::{
     color::{Color, Srgba},
     math::UVec2,
-    prelude::States,
 };
 
 // Re-export Plugins
 pub use crate::{
     animation::AnimPlugin, camera::CamPlugin, collision::CollisionPlugin, enemy::EnemyPlugin,
     gui::GuiPlugin, gun::GunPlugin, health::HealthPlugin, player::PlayerPlugin,
-    resources::ResourcePlugin, world::WorldPlugin,
+    resources::ResourcePlugin, state::*, world::WorldPlugin,
 };
 
 // Colors
@@ -37,25 +36,15 @@ pub const PLAYER_ANIM_INTERVAL_SECS: f32 = 0.1;
 pub const PLAYER_SPEED: f32 = 100.;
 
 // Enemy
-pub const ENEMY_SPAWN_INTERVAL_SECS: f32 = 1.0;
-pub const ENEMY_SPAWN_PER_SEC: usize = 50;
+pub const ENEMY_SPAWN_INTERVAL_SECS: f32 = 2.0;
+pub const ENEMY_SPAWN_PER_INTERVAL: usize = 500;
 pub const ENEMY_ANIM_INTERVAL_SECS: f32 = 0.2;
 pub const ENEMY_MAX_INSTANCES: usize = 50_000;
-pub const ENEMY_SPEED: f32 = 30.;
+pub const ENEMY_SPEED: f32 = 10.;
 
 pub const ENEMY_QUADTREE_REFRESH_RATE_SECS: f32 = 0.5;
 
-// Gun
 pub const BULLET_SPAWN_INTERVAL_SECS: f32 = 0.1;
+// Gun
 pub const BULLET_LIFE_SECS: f32 = 2.0;
 pub const BULLET_SPEED: f32 = 300.;
-
-/// Represents the current state of the game.
-/// `AssetLoad` —> `Init` —> `Running`
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
-pub enum GameState {
-    #[default]
-    AssetLoad,
-    Init,
-    Running,
-}

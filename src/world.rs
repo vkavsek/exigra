@@ -10,7 +10,7 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Init), spawn_world_decor);
+        app.add_systems(OnEnter(GameState::GameInit), spawn_world_decor);
     }
 }
 

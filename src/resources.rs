@@ -15,7 +15,7 @@ impl Plugin for ResourcePlugin {
             .add_systems(OnEnter(GameState::AssetLoad), load_resources)
             .add_systems(
                 Update,
-                update_cursor_pos.run_if(in_state(GameState::Running)),
+                update_cursor_pos.run_if(in_state(GameState::GameRun)),
             );
     }
 }
@@ -74,7 +74,7 @@ fn load_resources(
     let common_atlas_handle = TextureAtlasHandle::new(common_ta_layout, common_txtr);
     text_atlases.common = Some(common_atlas_handle);
 
-    next_state.set(GameState::Init);
+    next_state.set(GameState::MainMenu);
 }
 
 fn update_cursor_pos(

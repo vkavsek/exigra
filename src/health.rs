@@ -15,7 +15,7 @@ impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Last,
-            handle_zero_health.run_if(in_state(GameState::Running)),
+            handle_zero_health.run_if(in_state(GameState::GameRun)),
         );
     }
 }

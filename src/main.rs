@@ -16,7 +16,6 @@ fn main() {
                         mode: bevy::window::WindowMode::BorderlessFullscreen(
                             MonitorSelection::Index(1),
                         ),
-
                         ..default()
                     }),
                     ..default()

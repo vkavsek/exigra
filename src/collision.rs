@@ -29,7 +29,7 @@ impl Plugin for CollisionPlugin {
                     ENEMY_QUADTREE_REFRESH_RATE_SECS,
                 ))),
             )
-                .run_if(in_state(GameState::Running)),
+                .run_if(in_state(GameState::GameRun)),
         );
     }
 }
@@ -83,6 +83,16 @@ fn collide_enemy_bullet(
                     }
                 }
             }
+            // for (mut enemy_hp, enemy_transf) in enemy_query.iter_mut() {
+            //     if enemy_transf
+            //         .translation
+            //         .truncate()
+            //         .distance_squared(bullet_transf.translation.truncate())
+            //         < 80.
+            //     {
+            //         enemy_hp.current = enemy_hp.current.saturating_sub(**bullet_dmg)
+            //     }
+            // }
         });
 }
 
