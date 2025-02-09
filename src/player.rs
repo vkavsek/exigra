@@ -1,4 +1,9 @@
+use std::time::Duration;
+
+use crate::collision::ColliderShape;
+use crate::health::Health;
 use crate::prelude::*;
+use crate::quadtree::quad_collider::Shape;
 use crate::{animation::AnimationTimer, resources::GlobTextAtlases};
 
 use bevy::prelude::*;
@@ -10,21 +15,42 @@ impl Plugin for PlayerPlugin {
         app.add_systems(OnEnter(GameState::GameInit), spawn_player)
             .add_systems(
                 Update,
-                handle_player_input.run_if(in_state(GameState::GameRun)),
+                (handle_player_input, tick_player_iframes_timer)
+                    .run_if(in_state(GameState::GameRun)),
             );
     }
 }
 
 // Components
 #[derive(Component)]
-#[require(Transform, Sprite, AnimationTimer, PlayerState)]
+#[require(
+    Transform,
+    Health(|| Health::new(50)),
+    Sprite,
+    AnimationTimer,
+    PlayerState,
+    IFramesTimer(|| IFramesTimer::new_from_secs_f32(PLAYER_IFRAMES_DURATION_SECS)),
+    ColliderShape(|| ColliderShape(Shape::Quad(Rectangle::new(11., 13.))))
+)]
 pub struct Player;
 
+/// Used for player animation.
 #[derive(Component, Default, PartialEq, Eq)]
 pub enum PlayerState {
     #[default]
     Stop,
     Move,
+}
+
+#[derive(Component, DerefMut, Deref, Clone)]
+pub struct IFramesTimer(pub Timer);
+impl IFramesTimer {
+    /// Cretes a new IFRAME timer, by default it is set to finished aka no IFRAMES active
+    fn new_from_secs_f32(secs: f32) -> Self {
+        let mut t = IFramesTimer(Timer::new(Duration::from_secs_f32(secs), TimerMode::Once));
+        t.set_elapsed(Duration::from_secs_f32(secs));
+        t
+    }
 }
 
 fn spawn_player(
@@ -44,6 +70,11 @@ fn spawn_player(
     ));
 
     next_state.set(GameState::GameRun)
+}
+
+fn tick_player_iframes_timer(mut iframe_query: Query<&mut IFramesTimer>, time: Res<Time>) {
+    let mut iframe_timer = iframe_query.single_mut();
+    iframe_timer.tick(time.delta());
 }
 
 fn handle_player_input(

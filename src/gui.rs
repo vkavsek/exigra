@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{prelude::GameState, resources::EnemyNum};
+use crate::{health::Health, player::Player, prelude::GameState, resources::EnemyNum};
 
 const FONT_SIZE: f32 = 30.0;
 
@@ -39,6 +39,10 @@ struct FpsText;
 #[derive(Component)]
 #[require(TextSpan)]
 struct EnemyNumText;
+
+#[derive(Component)]
+#[require(TextSpan)]
+struct PlayerHpText;
 
 #[derive(Component)]
 #[require(TextSpan)]
@@ -113,21 +117,14 @@ fn spawn_main_menu(mut commands: Commands) {
 }
 
 fn spawn_debug_text(mut commands: Commands) {
-    commands
+    let fps_text = commands
         .spawn((
             Text::new("FPS: "),
             TextFont::default().with_font_size(FONT_SIZE),
-            Node {
-                position_type: PositionType::Absolute,
-                right: Val::Px(10.),
-                ..default()
-            },
+            Node::default(),
         ))
-        .with_child((
-            TextSpan::default(),
-            TextFont::default().with_font_size(FONT_SIZE),
-            FpsText,
-        ));
+        .with_child((TextFont::default().with_font_size(FONT_SIZE), FpsText))
+        .id();
 
     let enemies_text = commands
         .spawn((
@@ -135,30 +132,40 @@ fn spawn_debug_text(mut commands: Commands) {
             TextFont::default().with_font_size(FONT_SIZE),
             Node::default(),
         ))
-        .with_child((
-            TextSpan::default(),
+        .with_child((TextFont::default().with_font_size(FONT_SIZE), EnemyNumText))
+        .id();
+
+    let player_hp_text = commands
+        .spawn((
+            Text::new("PLAYER_HP: "),
             TextFont::default().with_font_size(FONT_SIZE),
-            EnemyNumText,
+            Node::default(),
         ))
+        .with_child((TextFont::default().with_font_size(FONT_SIZE), PlayerHpText))
         .id();
 
     commands
         .spawn((
             Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
+                align_items: AlignItems::End,
                 ..Default::default()
             },
             OnGameScreen,
         ))
-        .add_child(enemies_text);
+        .add_children(&[fps_text, enemies_text, player_hp_text]);
 }
 
 fn update_debug_text(
     mut set: ParamSet<(
         Query<&mut TextSpan, With<FpsText>>,
         Query<&mut TextSpan, With<EnemyNumText>>,
+        Query<&mut TextSpan, With<PlayerHpText>>,
     )>,
+    player_query: Query<&Health, (With<Player>, Changed<Health>)>,
     num_of_enemies: Res<EnemyNum>,
     diagnostics: Res<DiagnosticsStore>,
 ) {
@@ -173,6 +180,12 @@ fn update_debug_text(
     let mut enemy_num_span = set.p1();
     let mut enemy_num_span = enemy_num_span.single_mut();
     **enemy_num_span = num_of_enemies.to_string();
+
+    if let Ok(player_hp) = player_query.get_single() {
+        let mut hp_span = set.p2();
+        let mut hp_span = hp_span.single_mut();
+        **hp_span = format!("{} / {}", player_hp.current, player_hp.max);
+    }
 }
 
 // This system handles changing all buttons color based on mouse interaction

@@ -42,7 +42,7 @@ impl Plugin for EnemyPlugin {
     Sprite,
     AnimationTimer,
     Health(|| Health::new(10)),
-    Damage,
+    Damage(|| Damage(5)),
     ColliderShape(|| 
         ColliderShape(
             Shape::Quad(
@@ -89,7 +89,6 @@ fn spawn_enemies(
                 Sprite::from_atlas_image(image, TextureAtlas { layout, index: 0 }),
                 Transform::from_translation(get_random_around(player_pos).extend(100.0)),
                 AnimationTimer::new_from_secs(ENEMY_ANIM_INTERVAL_SECS),
-                Damage(5),
                 Enemy,
             )
         })
@@ -112,7 +111,8 @@ fn update_enemy_transform(
     enemy_query.iter_mut().for_each(|mut etransf| {
         let dir = (player_pos - etransf.translation.truncate()).normalize_or_zero();
 
-        etransf.translation += dir.extend(0.0) * ENEMY_SPEED * time.delta_secs();
+        let enemy_vel = dir.extend(0.0) * ENEMY_SPEED * time.delta_secs();
+        etransf.translation += enemy_vel;
     });
 }
 

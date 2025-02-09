@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::player::IFramesTimer;
 use crate::prelude::*;
 use crate::{
     enemy::Enemy,
@@ -41,14 +42,30 @@ fn animation_timer_tick(mut at_query: Query<&mut AnimationTimer>, time: Res<Time
 }
 
 fn animate_player(
-    mut player_query: Query<(&mut Sprite, &PlayerState, &Transform, &AnimationTimer), With<Player>>,
+    mut player_query: Query<
+        (
+            &mut Sprite,
+            &PlayerState,
+            &Transform,
+            &AnimationTimer,
+            &IFramesTimer,
+        ),
+        With<Player>,
+    >,
     cursor_pos: Res<CursorPos>,
 ) {
     if player_query.is_empty() {
         return;
     }
 
-    let (mut player_sprite, player_state, player_transf, anim_timer) = player_query.single_mut();
+    let (mut player_sprite, player_state, player_transf, anim_timer, iframes_timer) =
+        player_query.single_mut();
+
+    // Animate invulnerability
+    let dmged = Vec3::new(1., 0., 0.);
+    let healthy = Vec3::new(1., 1., 1.);
+    let current = healthy.lerp(dmged, (iframes_timer.fraction() * 4.) % 1.);
+    player_sprite.color = Color::srgb(current.x, current.y, current.z);
 
     // Animate index
     if anim_timer.just_finished() {

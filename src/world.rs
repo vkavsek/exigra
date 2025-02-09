@@ -23,9 +23,10 @@ fn spawn_world_decor(mut commands: Commands, text_atlases: Res<GlobTextAtlases>)
 
     let decor = (0..WORLD_DECOR_NUM)
         .map(|_| {
-            let layout = text_atlases.common.clone().unwrap().layout;
-            let image = text_atlases.common.clone().unwrap().image;
-            let index = if rng.gen_bool(0.5) { 8 } else { 9 };
+            let layout = text_atlases.foliage.clone().unwrap().layout;
+            let image = text_atlases.foliage.clone().unwrap().image;
+            let index = rng.gen_range(4..8);
+            let random_flip = rng.gen_bool(0.5);
 
             let whalf = WORLD_SIZE * 0.5;
             let x = rng.gen_range(-whalf..whalf);
@@ -34,11 +35,9 @@ fn spawn_world_decor(mut commands: Commands, text_atlases: Res<GlobTextAtlases>)
             // returns 1..=2, entities lower on the map get a number closer to 2.
             let z_offset = -(-WORLD_SIZE + y - whalf) / 1000.0;
 
-            (
-                Sprite::from_atlas_image(image, TextureAtlas { layout, index }),
-                Transform::from_xyz(x, y, 10. + z_offset),
-                Decor,
-            )
+            let mut sprite = Sprite::from_atlas_image(image, TextureAtlas { layout, index });
+            sprite.flip_x = random_flip;
+            (sprite, Transform::from_xyz(x, y, 10. + z_offset), Decor)
         })
         .collect::<Vec<_>>();
 

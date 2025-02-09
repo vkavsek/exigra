@@ -27,6 +27,11 @@ pub const SPRITESH_COMMON_COL: u32 = 4;
 pub const SPRITESH_COMMON_ROW: u32 = 4;
 pub const SPRITESH_COMMON_TILESIZE: UVec2 = UVec2::splat(16);
 
+pub const SPRITESH_FOLIAGE_PATH: &str = "foliage_sprites.png";
+pub const SPRITESH_FOLIAGE_COL: u32 = 4;
+pub const SPRITESH_FOLIAGE_ROW: u32 = 4;
+pub const SPRITESH_FOLIAGE_TILESIZE: UVec2 = UVec2::splat(16);
+
 // World
 pub const WORLD_DECOR_NUM: u32 = 1500;
 pub const WORLD_SIZE: f32 = 2000.;
@@ -34,6 +39,7 @@ pub const WORLD_SIZE: f32 = 2000.;
 // Player
 pub const PLAYER_ANIM_INTERVAL_SECS: f32 = 0.1;
 pub const PLAYER_SPEED: f32 = 100.;
+pub const PLAYER_IFRAMES_DURATION_SECS: f32 = 1.25;
 
 // Enemy
 pub const ENEMY_SPAWN_INTERVAL_SECS: f32 = 2.0;

@@ -28,6 +28,7 @@ pub struct EnemyNum(pub usize);
 pub struct GlobTextAtlases {
     pub player: Option<TextureAtlasHandle>,
     pub common: Option<TextureAtlasHandle>,
+    pub foliage: Option<TextureAtlasHandle>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,9 @@ fn load_resources(
     asset_serv: Res<AssetServer>,
 ) {
     let player_txtr = asset_serv.load(SPRITESH_PLAYER_PATH);
+    let common_txtr = asset_serv.load(SPRITESH_COMMON_PATH);
+    let foliage_txtr = asset_serv.load(SPRITESH_FOLIAGE_PATH);
+
     let player_layout = TextureAtlasLayout::from_grid(
         SPRITESH_PLAYER_TILESIZE,
         SPRITESH_PLAYER_COL,
@@ -62,7 +66,6 @@ fn load_resources(
     let player_atlas_handle = TextureAtlasHandle::new(player_ta_layout, player_txtr);
     text_atlases.player = Some(player_atlas_handle);
 
-    let common_txtr = asset_serv.load(SPRITESH_COMMON_PATH);
     let common_layout = TextureAtlasLayout::from_grid(
         SPRITESH_COMMON_TILESIZE,
         SPRITESH_COMMON_COL,
@@ -73,6 +76,17 @@ fn load_resources(
     let common_ta_layout = texture_layouts.add(common_layout);
     let common_atlas_handle = TextureAtlasHandle::new(common_ta_layout, common_txtr);
     text_atlases.common = Some(common_atlas_handle);
+
+    let foliage_layout = TextureAtlasLayout::from_grid(
+        SPRITESH_FOLIAGE_TILESIZE,
+        SPRITESH_FOLIAGE_COL,
+        SPRITESH_FOLIAGE_ROW,
+        None,
+        None,
+    );
+    let foliage_ta_layout = texture_layouts.add(foliage_layout);
+    let foliage_atlas_handle = TextureAtlasHandle::new(foliage_ta_layout, foliage_txtr);
+    text_atlases.foliage = Some(foliage_atlas_handle);
 
     next_state.set(GameState::MainMenu);
 }
