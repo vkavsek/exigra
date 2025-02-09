@@ -33,8 +33,8 @@ fn main() {
             EnemyPlugin,
             GunPlugin,
             AnimPlugin,
-            HealthPlugin,
             CollisionPlugin,
+            ScorePlugin,
         ))
         .run();
 }

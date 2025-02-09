@@ -2,7 +2,7 @@ use crate::collision::ColliderShape;
 use crate::prelude::*;
 use crate::quadtree::quad_collider::Shape;
 use crate::{
-    health::Damage,
+    components::Damage,
     player::Player,
     resources::{CursorPos, GlobTextAtlases},
 };
@@ -22,10 +22,7 @@ impl Plugin for GunPlugin {
                 (handle_gun_input, update_gun_pos, update_bullet_pos)
                     .run_if(in_state(GameState::GameRun)),
             )
-            .add_systems(
-                Last,
-                handle_bullet_timer.run_if(in_state(GameState::GameRun)),
-            );
+            .add_systems(Last, despawn_bullets.run_if(in_state(GameState::GameRun)));
     }
 }
 
@@ -130,7 +127,7 @@ fn update_bullet_pos(
     });
 }
 
-fn handle_bullet_timer(
+fn despawn_bullets(
     mut commands: Commands,
     bullet_query: Query<(Entity, &SpawnInstant), With<Bullet>>,
 ) {

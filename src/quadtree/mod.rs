@@ -1,10 +1,4 @@
-//! An implementation of a [`Quadtree`].
-
-// TODO:
-//     - WIP Shape instead of Rect (Circle,
-//     Rect, Capsule)
-//     - nearest?
-//     - Error?
+//! An implementation of a simple recursive [`Quadtree`].
 
 use bevy::math::{vec2, Rect, Vec2};
 
@@ -45,6 +39,7 @@ impl<T: PartialEq + AsQuadCollider + Clone> Quadtree<T> {
         }
     }
 
+    /// Recursively clears the Quadtree, probably inefficient, you can just drop the value.
     #[inline]
     pub fn clear(&mut self) {
         self.root.clear();

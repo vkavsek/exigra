@@ -8,21 +8,16 @@ use crate::prelude::*;
 use crate::quadtree::quad_collider::{AsQuadCollider, QuadCollider, Shape};
 use crate::quadtree::Quadtree;
 use crate::{
+    components::{Damage, Health},
     enemy::Enemy,
     gun::Bullet,
-    health::{Damage, Health},
 };
 
 pub struct CollisionPlugin;
 
 impl Plugin for CollisionPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemyQuadtree(Quadtree::new(Rect::from_center_size(
-            Vec2::ZERO,
-            // TODO: change to WORLD_SIZE when the world gets 'closed'
-            Vec2::splat(WORLD_SIZE + 500.),
-        ))))
-        .add_systems(
+        app.insert_resource(EnemyQuadtree::default()).add_systems(
             Update,
             (
                 collide_enemy_bullet,
@@ -38,6 +33,16 @@ impl Plugin for CollisionPlugin {
 
 #[derive(Resource, DerefMut, Deref)]
 pub struct EnemyQuadtree(pub Quadtree<QuadVal>);
+
+impl Default for EnemyQuadtree {
+    fn default() -> Self {
+        EnemyQuadtree(Quadtree::new(Rect::from_center_size(
+            Vec2::ZERO,
+            // TODO: change to WORLD_SIZE when the world gets 'closed'
+            Vec2::splat(WORLD_SIZE + 500.),
+        )))
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct QuadVal {
@@ -69,13 +74,14 @@ fn update_enemy_quadtree(
     mut qtree: ResMut<EnemyQuadtree>,
     enemy_query: Query<(Entity, &Transform, &ColliderShape), With<Enemy>>,
 ) {
-    qtree.clear();
     let enemies = enemy_query
         .iter()
         .map(|(ent, transf, shape)| QuadVal::new(ent, transf.translation.truncate(), **shape))
         .collect::<Vec<_>>();
 
     if !enemies.is_empty() {
+        // reset the EnemyQuadtree
+        *qtree = EnemyQuadtree::default();
         qtree.insert_many(&enemies);
     }
 }

@@ -8,8 +8,9 @@ use crate::collision::ColliderShape;
 use crate::prelude::*;
 use crate::quadtree::quad_collider::Shape;
 use crate::resources::EnemyNum;
+use crate::score::{ScoreAccumulator, Worth};
 use crate::{
-    animation::AnimationTimer, health::Damage, health::Health, player::Player,
+    animation::AnimationTimer, components::Damage, components::Health, player::Player,
     resources::GlobTextAtlases,
 };
 
@@ -32,6 +33,10 @@ impl Plugin for EnemyPlugin {
                 // spawn enemies first, then run all the updating systems
                 .chain()
                 .run_if(in_state(GameState::GameRun)),
+        )
+        .add_systems(
+            Last,
+            handle_enemy_death.run_if(in_state(GameState::GameRun)),
         );
     }
 }
@@ -43,12 +48,8 @@ impl Plugin for EnemyPlugin {
     AnimationTimer,
     Health(|| Health::new(10)),
     Damage(|| Damage(5)),
-    ColliderShape(|| 
-        ColliderShape(
-            Shape::Quad(
-                Rectangle::from_size(Vec2::splat(8.0))
-            )
-        ))
+    Worth(|| Worth(1)),
+    ColliderShape(|| ColliderShape( Shape::Quad( Rectangle::from_size(Vec2::splat(8.0)))))
 )]
 pub struct Enemy;
 
@@ -118,4 +119,18 @@ fn update_enemy_transform(
 
 fn track_num_of_enemies(mut num_of_enemies: ResMut<EnemyNum>, enemy_query: Query<&Enemy>) {
     **num_of_enemies = enemy_query.iter().len();
+}
+
+fn handle_enemy_death(
+    mut commands: Commands,
+    mut player_query: Query<&mut ScoreAccumulator, With<Player>>,
+    enemy_query: Query<(Entity, &Health, &Worth), (Changed<Health>, With<Enemy>)>,
+) {
+    let mut player_score_accum = player_query.single_mut();
+    for (ent, hp, worth) in enemy_query.iter() {
+        if hp.current == 0 {
+            **player_score_accum += **worth;
+            commands.entity(ent).despawn();
+        }
+    }
 }

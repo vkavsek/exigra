@@ -5,7 +5,9 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{health::Health, player::Player, prelude::GameState, resources::EnemyNum};
+use crate::{
+    components::Health, player::Player, prelude::GameState, resources::EnemyNum, score::Score,
+};
 
 const FONT_SIZE: f32 = 30.0;
 
@@ -39,6 +41,10 @@ struct FpsText;
 #[derive(Component)]
 #[require(TextSpan)]
 struct EnemyNumText;
+
+#[derive(Component)]
+#[require(TextSpan)]
+struct ScoreText;
 
 #[derive(Component)]
 #[require(TextSpan)]
@@ -144,6 +150,15 @@ fn spawn_debug_text(mut commands: Commands) {
         .with_child((TextFont::default().with_font_size(FONT_SIZE), PlayerHpText))
         .id();
 
+    let score_text = commands
+        .spawn((
+            Text::new("SCORE: "),
+            TextFont::default().with_font_size(FONT_SIZE),
+            Node::default(),
+        ))
+        .with_child((TextFont::default().with_font_size(FONT_SIZE), ScoreText))
+        .id();
+
     commands
         .spawn((
             Node {
@@ -156,7 +171,7 @@ fn spawn_debug_text(mut commands: Commands) {
             },
             OnGameScreen,
         ))
-        .add_children(&[fps_text, enemies_text, player_hp_text]);
+        .add_children(&[fps_text, enemies_text, player_hp_text, score_text]);
 }
 
 fn update_debug_text(
@@ -164,9 +179,11 @@ fn update_debug_text(
         Query<&mut TextSpan, With<FpsText>>,
         Query<&mut TextSpan, With<EnemyNumText>>,
         Query<&mut TextSpan, With<PlayerHpText>>,
+        Query<&mut TextSpan, With<ScoreText>>,
     )>,
     player_query: Query<&Health, (With<Player>, Changed<Health>)>,
     num_of_enemies: Res<EnemyNum>,
+    score: Res<Score>,
     diagnostics: Res<DiagnosticsStore>,
 ) {
     let mut fps_span = set.p0();
@@ -186,6 +203,10 @@ fn update_debug_text(
         let mut hp_span = hp_span.single_mut();
         **hp_span = format!("{} / {}", player_hp.current, player_hp.max);
     }
+
+    let mut score_span = set.p3();
+    let mut score_span = score_span.single_mut();
+    **score_span = score.to_string();
 }
 
 // This system handles changing all buttons color based on mouse interaction

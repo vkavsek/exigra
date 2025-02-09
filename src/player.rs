@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use crate::collision::ColliderShape;
-use crate::health::Health;
+use crate::components::Health;
 use crate::prelude::*;
 use crate::quadtree::quad_collider::Shape;
+use crate::score::ScoreAccumulator;
 use crate::{animation::AnimationTimer, resources::GlobTextAtlases};
 
 use bevy::prelude::*;
@@ -29,6 +30,7 @@ impl Plugin for PlayerPlugin {
     Sprite,
     AnimationTimer,
     PlayerState,
+    ScoreAccumulator(|| ScoreAccumulator(0)),
     IFramesTimer(|| IFramesTimer::new_from_secs_f32(PLAYER_IFRAMES_DURATION_SECS)),
     ColliderShape(|| ColliderShape(Shape::Quad(Rectangle::new(11., 13.))))
 )]
